@@ -14,7 +14,7 @@ import scipy
 from itertools import chain
 import cProfile
 import pstats
-from get_data import get_batch, generate_data, get_batch_RNN
+from get_data import  get_data
 
 def plot_data(data, time, plot_derive = 0):
     for i in range(data.size(dim=0)):
@@ -46,21 +46,28 @@ def plot_batch_rnn(data, batch_y0_rnn, batch_t_rnn, batch_y_rnn, t_end_batch, t_
     plt.show()
 
 t_start = 0
-t_end = 30
-time_steps = 200
-num_of_inits = 10
+t_end = 90
+time_steps = 400
+num_of_inits =10
 
 t_end_batch = 100
-batch_size = 20
-
-data, time, initial_values = generate_data(x0 = np.pi/4, y0 = 0.1, use_fixed_init = False, t0=t_start, t1=t_end, 
-                                           time_steps=time_steps, num_of_inits=num_of_inits, normalize=True, add_noise=False, u_option="sin")
+batch_size = 3
 
 
+input_data, test_data, time, initial_values, input_data_w_time = get_data(x0 = np.pi/4, y0 = 0.1, use_fixed_init = False, t0=t_start, t1=t_end, 
+                                                                                   time_steps=time_steps, num_of_inits=num_of_inits, normalize=False,
+                                                                                     add_noise=False, u_option="sin",  set_seed=True)
+
+                                                                                   
+    
+ 
+
+#for x in input_data:
+#    print("norm:", np.linalg.norm(x[:,1].numpy()), "mean:", torch.mean(x[:,1]).numpy())
 
 #batch_y0, batch_t, batch_y = get_batch(data[0], time, t_end_batch=t_end_batch , batch_size=batch_size)
 #batch_y0_rnn, batch_t_rnn, batch_y_rnn = get_batch_RNN(data[0], time, t_end_batch=t_end_batch , batch_size=batch_size)
 
-plot_data(data, time, plot_derive = 0)
+plot_data(input_data, time, plot_derive = 1)
 #plot_batch(batch_y0, batch_t, batch_y)
 #plot_batch_rnn(data, batch_y0_rnn, batch_t_rnn, batch_y_rnn, t_end_batch, t_start, time_steps)
