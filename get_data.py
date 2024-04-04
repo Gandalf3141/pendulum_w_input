@@ -7,46 +7,50 @@ import scipy
 def input(t, u_option):
   
   #np.random.seed(seed=np.random.randint(1))
+  a = np.random.uniform(0.1, 0.3, 1)
+  b = np.random.uniform(1, 5, 1)
+  c = np.random.uniform(0, 5, 1)
+  sign = 1 if np.random.random() < 0.5 else -1
 
   if u_option=="noise":
-   return np.random.normal(0, 0.1, len(t))
-  
+   y =  np.random.normal(0, 0.1, len(t))
+
+  if u_option=="tanh":
+   y =  sign * a * np.tanh((t - 10)/5)
+   y[200:400] = 0.1 * np.cos(2 *t[200:400])**2
+   
+   y[400::] = 0.1*np.sin(t[400::] / 2)
+ 
   if u_option=="sin":
-   return 0.1 * np.tanh(t/len(t))
+   y = 0.1 * np.sin(2*t)
   
   if u_option=="rand_sin":
-   
-   a = np.random.uniform(0.05, 0.2, 1)
-   b = np.random.uniform(1, 5, 1)
-   c = np.random.uniform(0, 5, 1)
+   y = a * np.sin( b * t + c)
 
-   return a * np.sin( b * t + c)
-
-  if u_option=="random_walk":
-   
+  if u_option=="random_walk": 
    steps = np.random.uniform(-0.05, 0.05, len(t))
    steps[0] = np.random.uniform(-0.2, 0.2, 1)
    walk = np.cumsum(steps) 
    walk = 0.3*(walk / np.max(abs(walk)))
-   return walk
+   y = walk
   
   if u_option=="cos":
-   return 0.1 * np.cos(t) 
+   y = 0.1 * np.cos(t) 
   
   if u_option=="test":
-   return 0.4 * np.cos(t**2) + np.sin(2*t)
+   y = a * ( np.cos(t**2) + np.sin(2*t) )
   
   if u_option=="none":
-   return 0*np.cos(t) 
+   y = 0*np.cos(t)
 
-  else: 
-   return 0  
+  return y
+
 
 def func(y,t, u):
 
   f = 1
   
-  return np.array([y[1], 1/f*(-np.sin(y[0])- 1/7*y[1] + u )])
+  return np.array([y[1], 1/f*(-np.sin(y[0])- 1/7*y[1] + u )]) # add noise
 
 def get_data(x0 = np.pi/4, y0 = 0.1, use_fixed_init = False, t0=0, t1=30, time_steps=1000, num_of_inits=1, normalize=True, add_noise=False, u_option="noise", set_seed=True):
 
@@ -84,6 +88,9 @@ def get_data(x0 = np.pi/4, y0 = 0.1, use_fixed_init = False, t0=0, t1=30, time_s
         z = scipy.integrate.odeint(func, out[i-1], t_span, args = (u[i],))
 
         out[i] = z[1]
+
+      if add_noise:
+        out += np.random.normal(0, 0.02, size=(len(t),2))
 
       out = torch.tensor(out)
       u = torch.tensor(u).view(1,len(t))
