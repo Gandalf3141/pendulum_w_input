@@ -20,29 +20,19 @@ torch.set_default_dtype(torch.float64)
 device="cpu"
 
     
-class LSTMmodel(nn.Module):
-    
-    def __init__(self,input_size , hidden_size , out_size, layers):
-        
+class NeuralNetwork(nn.Module):
+
+    def __init__(self, input_dim=1, output_dim=1, num_neurons=6, layers=5):
         super().__init__()
-        
-        self.hidden_size = hidden_size
-        
-        self.input_size = input_size
-        
-        self.lstm = nn.LSTM(input_size,hidden_size, num_layers=layers) #ohne bias ändern 0er in input sequence nichts.
-                
-        self.linear = nn.Linear(hidden_size, out_size)
-        
-        
-    def forward(self,seq):
 
+        layers = [nn.Linear(input_dim, num_neurons), nn.Tanh()] + list(chain.from_iterable(zip([nn.Linear(num_neurons, num_neurons, bias=True) for i in range(layers)],
+                                              [nn.Tanh() for i in range(layers)]))) + [nn.Linear(num_neurons, output_dim)]
+        self.linear_relu_stack = nn.Sequential(*layers)
 
-        lstm_out , hidden = self.lstm(seq)         
+    def forward(self, x):
+        # x = self.flatten(x)
 
-        pred = self.linear(lstm_out.view(len(seq),-1))
-        
-        return pred, hidden
+        return  self.linear_relu_stack(x)
  
 
 
@@ -73,8 +63,8 @@ def test(test_data, time, model, plot_opt=False, ws=1, steps=200, odestep=False,
        
             for i in range(len(x)- ws):
 
-                out, _ = model(pred[i:i+ws,:])  
-                out2, _ = model(x[i:i+ws,:])  
+                out = model(pred[i:i+ws,:])  
+                out2 = model(x[i:i+ws,:])  
                
                 if odestep:
                     
@@ -84,7 +74,7 @@ def test(test_data, time, model, plot_opt=False, ws=1, steps=200, odestep=False,
 
                 else:
                  pred[i+ws, 1:] = out[-1]
-                 outt , _  = model(x[i:i+ws,:])
+                 outt = model(x[i:i+ws,:])
                  pred_next_step[i+ws, 1:] = outt[-1]
 
                 if use_autograd:
@@ -176,7 +166,7 @@ def test(test_data, time, model, plot_opt=False, ws=1, steps=200, odestep=False,
 
 def main():
 
-    window_size = 4
+    window_size = 1
     start_time = 0
     stop_time = 90
     timesteps = 600
@@ -186,17 +176,15 @@ def main():
 
     input_data, test_data, time, initial_values, input_data_w_time = get_data(x0 = np.pi/4, y0 = 0.1, use_fixed_init = False, t0=start_time, t1=stop_time, 
                                                                                    time_steps=timesteps, num_of_inits=num_of_inits,
-                                                                                     normalize=False, add_noise=False, u_option="tanh",  set_seed=False)
-
+                                                                                  normalize=False, add_noise=False, u_option="random_walk",  set_seed=False)
 
     train_size = 1
     test_size = len(input_data) - train_size
     train_dataset, test_dataset = torch.utils.data.random_split(input_data, [train_size, test_size])
 
-    model = LSTMmodel(input_size=3,hidden_size=5, out_size=2, layers=1).to(device)
-    #model = LSTMmodel(input_size=3,hidden_size=6, out_size=2, layers=2).to(device)
+    model = NeuralNetwork(input_dim=3, output_dim=2, layers=3, num_neurons=6).to(device)
 
-    model.load_state_dict(torch.load("lstm_wsize_4_smaller_net.pth", map_location=torch.device('cpu')))
+    model.load_state_dict(torch.load("trained_NNs/mlp_3layers_6neurons.pth", map_location=torch.device('cpu')))
     #this works good:  window_size = 4 / small model
     #model.load_state_dict(torch.load("lstm_wsize_4_smaller_net.pth", map_location=torch.device('cpu')))
 

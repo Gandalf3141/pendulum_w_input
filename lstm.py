@@ -1,4 +1,37 @@
-#packages
+# python
+# """
+# LSTM Model for Derivative Estimation with Dynamic Systems
+
+# This code defines an LSTM (Long Short-Term Memory) model to estimate derivatives in dynamic systems. It utilizes PyTorch for defining and training the model. The main components of the code include:
+
+# Packages:
+# - Matplotlib for plotting
+# - Pandas for data manipulation
+# - Torch for deep learning operations
+# - Torchdyn for solving ordinary differential equations
+# - Icecream for debugging purposes
+# - tqdm for progress monitoring
+# - Scipy for scientific computing
+# - cProfile and pstats for profiling
+
+# Model Architecture:
+# - The LSTMmodel class defines the LSTM model with configurable input size, hidden size, output size, and number of layers.
+
+# Training and Testing:
+# - The train function trains the model using input data. It supports options for using autograd and ODE steps.
+# - The test function evaluates the model's performance on test data. It supports options for plotting results and using autograd.
+# - The main function orchestrates training, testing, and model saving.
+
+# Settings:
+# - Various parameters such as window size, time settings, and dataset characteristics are configurable.
+
+# Author: [Author Name]
+# Date: [Date]
+# """
+# ```
+
+
+# Importing necessary libraries
 from matplotlib import legend
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -14,60 +47,87 @@ from itertools import chain
 import cProfile
 import pstats
 from get_data import get_data
+import logging
+import os
 
-# Defining the LSTM model with two hidden layers
+# Define the LSTM model with two hidden layers
 torch.set_default_dtype(torch.float64)
 device="cpu"
-
-class NeuralNetwork(nn.Module): 
-
-    def __init__(self, input_dim=1, output_dim=1, num_neurons=6, layers=5):
-        super().__init__()
-        
-        layers = [nn.Linear(input_dim, num_neurons), nn.Tanh()] + list(chain.from_iterable(zip([nn.Linear(num_neurons, num_neurons, bias=True) for i in range(layers)], 
-                                              [nn.Tanh() for i in range(layers)]))) + [nn.Linear(num_neurons, output_dim)]
-        self.linear_relu_stack = nn.Sequential(*layers)
-    
-    def forward(self, x):
-        # x = self.flatten(x)
-        
-        return  self.linear_relu_stack(x)  
-    
+torch.set_default_dtype(torch.float64)
+ 
 class LSTMmodel(nn.Module):
+    """
+    LSTM model class for derivative estimation.
+    """
     
     def __init__(self,input_size , hidden_size , out_size, layers):
+        """
+        Initialize the LSTM model.
         
+        Args:
+        - input_size: Size of input
+        - hidden_size: Size of hidden layer
+        - out_size: Size of output
+        - layers: Number of layers
+        """
         super().__init__()
         
         self.hidden_size = hidden_size
-        
         self.input_size = input_size
         
-        self.lstm = nn.LSTM(input_size,hidden_size, num_layers=layers) #ohne bias ändern 0er in input sequence nichts.
+        # Define LSTM layer
+        self.lstm = nn.LSTM(input_size,hidden_size, num_layers=layers)
                 
+        # Define linear layer
         self.linear = nn.Linear(hidden_size, out_size)
         
         
     def forward(self,seq):
-
-
-        lstm_out , hidden = self.lstm(seq)         
-
+        """
+        Forward pass through the LSTM model.
+        
+        Args:
+        - seq: Input sequence
+        
+        Returns:
+        - pred: Model prediction
+        - hidden: Hidden state
+        """
+        lstm_out , hidden = self.lstm(seq)
         pred = self.linear(lstm_out.view(len(seq),-1))
         
         return pred, hidden
 
 def slice_batch(batch, window_size=1):
+    """
+    Slice the input data into batches for training.
+    
+    Args:
+    - batch: Input data batch
+    - window_size: Size of the sliding window
+    
+    Returns:
+    - List of sliced batches
+    """
     l = []
     for i in range(len(batch)- window_size):
-
-     l.append((batch[i:i+window_size,:], batch[i+1:i+window_size+1, 1: ]))  # hier ist u(t) nicht beim label dabei
-     #l.append((batch[i:i+window_size,:], batch[i+window_size:i+window_size+1, 1: ]))  # hier ist u(t) nicht beim label dabei
-
+        l.append((batch[i:i+window_size,:], batch[i+1:i+window_size+1, 1: ]))
     return l    
 
 def train(input_data, model, ws=1, odestep=False, use_autograd=False):
-
+    """
+    Train the LSTM model using input data.
+    
+    Args:
+    - input_data: Input data for training
+    - model: LSTM model to be trained
+    - ws: Window size
+    - odestep: Option for using ODE steps
+    - use_autograd: Option for using autograd
+    
+    Returns:
+    - Mean loss over all batches
+    """
     loss_fn = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters())
 
@@ -78,24 +138,18 @@ def train(input_data, model, ws=1, odestep=False, use_autograd=False):
     for batch in input_data:
 
         input = slice_batch(batch, ws)
-        
         batch_loss = 0
 
         for inp, label in input: # inp = (u, x) label = x
-            
-            #inp.to(device)
-            #label.to(device)
 
             output, _ = model(inp)
 
             out = output[-1]
-            out = out.view(1,out.size(dim=0))#out.view(1, out.size(dim=0))
-           
+            out = out.view(1,out.size(dim=0))
+
             if odestep:
-             #out = inp[-1, 1:] + out # u wird nicht geändert!
-             out = inp[:, 1:] + output
-            
-            
+                out = inp[:, 1:] + output
+
             if use_autograd:
                 print("not implemented yet")
                
@@ -106,80 +160,92 @@ def train(input_data, model, ws=1, odestep=False, use_autograd=False):
 
             batch_loss += loss.detach().numpy()
 
-        total_loss.append(batch_loss) #loss over all initial conditions
+        total_loss.append(batch_loss)
 
     return np.mean(total_loss)
 
 def test(test_data, time, model, plot_opt=False, ws=1, steps=200, odestep=False, use_autograd=False):
-
+    """
+    Test the trained LSTM model using test data.
+    
+    Args:
+    - test_data: Test data
+    - time: Time data
+    - model: Trained LSTM model
+    - plot_opt: Option for plotting results
+    - ws: Window size
+    - steps: Number of steps
+    - odestep: Option for using ODE steps
+    - use_autograd: Option for using autograd
+    
+    Returns:
+    - Mean test loss
+    - Mean derivative test loss
+    """
     model.eval() 
-
     loss_fn = nn.MSELoss()
-
     test_loss = 0 
     test_loss_deriv = 0
 
     for x in test_data: 
         with torch.inference_mode():
-            #pred = torch.ones_like(x)
-
 
             pred = torch.zeros((steps,3))
             pred_next_step = torch.zeros((steps,3))
-            #ic(pred)
-            #ic(x)
-            if ws>1:
-             pred[0:ws, :] = x[0:ws, :]
-             pred[:, 0] = x[:, 0]
-             pred_next_step[0:ws, :] = x[0:ws, :]
-             pred_next_step[:, 0] = x[:, 0]
+
+            if ws > 1:
+                pred[0:ws, :] = x[0:ws, :]
+                pred[:, 0] = x[:, 0]
+                pred_next_step[0:ws, :] = x[0:ws, :]
+                pred_next_step[:, 0] = x[:, 0]
             else:
-             pred[0, :] = x[0,:]
-             pred[:, 0] = x[:, 0]
-             pred_next_step[0, :] = x[0,:]
-             pred_next_step[:, 0] = x[:, 0]
+                pred[0, :] = x[0,:]
+                pred[:, 0] = x[:, 0]
+                pred_next_step[0, :] = x[0,:]
+                pred_next_step[:, 0] = x[:, 0]
        
-            for i in range(len(x)- ws):
-
+            for i in range(len(x) - ws):
                 out, _ = model(pred[i:i+ws,:])  
-                #out = model(pred[i:i+ws,:])
-               
+
                 if odestep:
-                    
-                          # x[k+1] = x[k]              + NN(x[k])
                     pred[i+ws, 1:] = pred[i+ws-1 , 1:] + out[-1, :]
-
                     pred_next_step[i+ws, 1:] = x[i+ws-1 , 1:] + out[-1, :]
-
                 else:
-                 #print("error you shouldnt have come here") 
-                 pred[i+ws, 1:] = out[-1]
-                 outt , _  = model(x[i:i+ws,:])
-                 pred_next_step[i+ws, 1:] = outt[-1]
+                    pred[i+ws, 1:] = out[-1]
+                    outt , _  = model(x[i:i+ws,:])
+                    pred_next_step[i+ws, 1:] = outt[-1]
 
                 if use_autograd:
-                  print("not implemented yet")
-
+                    print("not implemented yet")
 
             test_loss += loss_fn(pred[:,1], x[:,1]).detach().numpy()
             test_loss_deriv += loss_fn(pred[:,2], x[:,2]).detach().numpy()
 
             if plot_opt:
-                #plt.plot(pred.detach().numpy()[:,0])
                 plt.plot(time, pred.detach().numpy()[:,1], color="red", label="pred")
                 plt.plot(time, pred_next_step.detach().numpy()[:,1], color="green", label="next step from data")
                 plt.plot(time, x.detach().numpy()[:,1], color="blue", label="true", linestyle="dashed")
-                #plt.plot(pred.detach().numpy()[:,2])
                 
-            plt.grid()
-            plt.legend()
-            plt.show()
+                plt.grid()
+                plt.legend()
+                plt.show()
 
     return np.mean(test_loss), np.mean(test_loss_deriv)
 
-def main():
 
-    window_size = 6 #4 besser als 2?
+def main():
+    """
+    Main function for training and testing the LSTM model.
+    """
+    # Check if the logging file exists
+    log_file = 'training.log'
+    filemode = 'a' if os.path.exists(log_file) else 'w'
+
+    # Configure logging
+    logging.basicConfig(filename=log_file, filemode=filemode, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+    # Define parameters
+    window_size = 2
     start_time = 0
     stop_time = 30
     timesteps = 200
@@ -187,36 +253,47 @@ def main():
     option_odestep = True
     losses=[]
 
+    # Generate input data
     input_data, test_data, time, initial_values, input_data_w_time = get_data(x0 = np.pi/4, y0 = 0.1, use_fixed_init = False, t0=start_time, t1=stop_time, 
                                                                                    time_steps=timesteps, num_of_inits=num_of_inits,
-                                                                                     normalize=False, add_noise=False, u_option="random_walk",  set_seed=True)
+                                                                                     normalize=False, add_noise=True, u_option="random_walk",  set_seed=True)
 
-    
+    # Split data into train and test sets
     train_size = int(0.9 * len(input_data))
     test_size = len(input_data) - train_size
     train_dataset, test_dataset = torch.utils.data.random_split(input_data, [train_size, test_size])
-    #train_dataset = input_data
 
-    slice_of_data = 30
+    # Take a slice of data for training
+    slice_of_data = 20
     train_dataset = train_dataset[:][:,0:slice_of_data, :]
 
+    # Initialize the LSTM model
     model = LSTMmodel(input_size=3,hidden_size=5, out_size=2, layers=1).to(device)
 
-    epochs = 100
+    epochs = 50
 
-    ic(epochs, window_size, start_time, stop_time, timesteps, num_of_inits, option_odestep)
- 
+
     for e in range(epochs): 
-
         loss_epoch = train(train_dataset, model, ws=window_size, odestep=option_odestep, use_autograd=False)
         losses.append(loss_epoch)
-        if e%2 == 0:
-          ic(loss_epoch, e)
-
+        if e % 2 == 0:
+            print(f"Epoch {e}: Loss: {loss_epoch}")
+    # Plot losses
     plt.plot(losses[1:])
     plt.show()
-    torch.save(model.state_dict(), "lstm_derivative_with_input3.pth")
-    ic(test(test_dataset, time, model, plot_opt=True, ws=window_size, steps=timesteps, odestep=option_odestep))
+
+    # Save trained model
+    torch.save(model.state_dict(), "trained_NNs/lstm_ws2_noise.pth")
+
+    # Test the model
+    #test_dataset = test_dataset[:][:, :, :]
+    #test_loss, test_loss_deriv = test(test_dataset[-1], time, model, plot_opt=True, ws=window_size, steps=timesteps, odestep=option_odestep)
+    
+    # Log parameters
+    logging.info(f"Epochs: {epochs}, Window Size: {window_size},\n Start Time: {start_time}, Stop Time: {stop_time}, Timesteps: {timesteps}, Number of Inits: {num_of_inits},\n Option for ODE Step: {option_odestep}")
+    logging.info(f"final loss {losses[-1]}")
+    logging.info("--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------")
+    logging.info("--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------")
 
     return None
 
@@ -234,3 +311,6 @@ if __name__ == "__main__":
     # timesteps = 200
     # num_of_inits = 100
     # option_odestep = True
+
+
+#Add short and precise comments to the following python code. Describe functions, classes, loops similar things. The code:  
