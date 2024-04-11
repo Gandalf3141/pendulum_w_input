@@ -3,6 +3,7 @@ import numpy as np
 import scipy
 
 # Function to generate input signal based on the chosen option
+# ble
 
 
 def input(t, u_option):
@@ -84,7 +85,7 @@ def func(y, t, u):
 
 # Function to generate training and test data
 def get_data(x0=np.pi / 4, y0=0.1, use_fixed_init=False, t0=0, t1=30, time_steps=1000, num_of_inits=1,
-             normalize=True, add_noise=False, u_option="noise", set_seed=True):
+             normalize=True, add_noise=False, u_option="noise", set_seed=True, ws_start_noise=0, noise_factor=1):
     """
     Generates training and test data for the dynamic system.
 
@@ -147,10 +148,12 @@ def get_data(x0=np.pi / 4, y0=0.1, use_fixed_init=False, t0=0, t1=30, time_steps
             out[i] = z[1]
 
         if add_noise:
-            out += np.random.normal(0, 0.02, size=(len(t), 2))
-            # omega hat 3 mal so viel rauschen
-            out[:, 1] += 2 * np.random.normal(0, 0.02, len(t))
-
+            out[:, 0] += np.random.normal(0, 0.02, len(t))
+            # omega hat 2 mal so viel rauschen
+            out[:, 1] += noise_factor * np.random.normal(0, 0.02, len(t))
+        if ws_start_noise > 0:
+            out[0:ws_start_noise,0] += np.random.normal(0, 0.02, ws_start_noise)
+            out[0:ws_start_noise,1] += noise_factor * np.random.normal(0, 0.02, ws_start_noise)
         # Convert trajectory data to torch tensors and concatenate input signal
         out = torch.tensor(out)
         u = torch.tensor(u).view(1, len(t))

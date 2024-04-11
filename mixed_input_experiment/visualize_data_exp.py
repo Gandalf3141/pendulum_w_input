@@ -14,7 +14,7 @@ import scipy
 from itertools import chain
 import cProfile
 import pstats
-from get_data import get_data
+from get_data_exp import get_data
 
 
 def plot_data(data, time, plot_derive=0, plot_all=True):
@@ -40,7 +40,7 @@ def plot_data(data, time, plot_derive=0, plot_all=True):
     if plot_all:
         for i in range(data.size(dim=0)):
             # Plot the first function
-            axs[0].plot(time, data[i, :, 0], color="green", label="pred")
+            axs[0].plot(time, data[i, :, 0], color="green", label="u(t)")
             axs[0].set_xlabel('time [t]')
             axs[0].set_ylabel('u(t)')
             axs[0].set_title('damped pendulum with input')
@@ -65,7 +65,7 @@ def plot_data(data, time, plot_derive=0, plot_all=True):
             axs[2].grid()
 
             plt.tight_layout()
-            plt.grid()
+            #plt.grid()
             plt.legend()
             plt.show()
 
@@ -101,7 +101,7 @@ batch_size = 3
 
 input_data, test_data, time, initial_values, input_data_w_time = get_data(x0=np.pi/4, y0=0.1, use_fixed_init=False, t0=t_start, t1=t_end,
                                                                           time_steps=time_steps, num_of_inits=num_of_inits, normalize=False,
-                                                                          add_noise=True, u_option="random_walk",  set_seed=True)
+                                                                          add_noise=True, u_option="random_walk",  set_seed=True, noise_factor=10)
 
 
 plot_data(input_data, time, plot_derive=0, plot_all=True)
