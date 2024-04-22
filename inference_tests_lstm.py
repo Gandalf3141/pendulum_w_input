@@ -213,9 +213,12 @@ def main():
     start_time = 0
     stop_time = 90
     timesteps = 3 * 200
-    num_of_inits = 8
+    num_of_inits = 100
     option_odestep = True
     losses = []
+    display_plots = False
+    num_of_inits = 2 if display_plots else num_of_inits
+
 
     input_data, test_data, time, initial_values, input_data_w_time = get_data(x0=np.pi/4, y0=0.1, use_fixed_init=False, t0=start_time, t1=stop_time,
                                                                               time_steps=timesteps, num_of_inits=num_of_inits,
@@ -230,13 +233,14 @@ def main():
                       out_size=2, layers=1).to(device)
     # model = LSTMmodel(input_size=3,hidden_size=5, out_size=2, layers=2).to(device)
 
-    path = "trained_NNs\lstm_ws4.pth"
+    path = "trained_NNs\lstm_1.pth"
     model.load_state_dict(torch.load(path, map_location=torch.device('cpu')))
     # this works good:  window_size = 4 / small model hidden_size=5
     # model.load_state_dict(torch.load("lstm_wsize_4_smaller_net.pth", map_location=torch.device('cpu')))
+                                        #lstn_noisefactor1.pth ist ähnlich gut !
 
-    print(test(test_dataset, time, model, plot_opt=True, ws=window_size,
-          steps=timesteps, odestep=option_odestep, plot_derivative=False, error_plot=False))
+    print(test(test_dataset, time, model, plot_opt=display_plots, ws=window_size,
+          steps=timesteps, odestep=option_odestep, plot_derivative=False, error_plot=display_plots))
 
     return None
 

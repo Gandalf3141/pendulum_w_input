@@ -132,7 +132,7 @@ def train(input_data, model, ws=1, odestep=False, use_autograd=False):
     - Mean loss over all batches
     """
     loss_fn = nn.MSELoss()
-    optimizer = torch.optim.SGD(model.parameters(),lr=0.001)#torch.optim.Adam(model.parameters())
+    optimizer = torch.optim.Adam(model.parameters())
 
     model.train()
 
@@ -279,13 +279,14 @@ def main():
         input_data, [train_size, test_size])
 
     # Take a slice of data for training
-    slice_of_data = 100
+    slice_of_data = 20
+
     train_dataset = train_dataset[:][:, 0:slice_of_data, :]
 
     # Initialize the LSTM model
     model = LSTMmodel(input_size=3, hidden_size=5,
                       out_size=2, layers=1).to(device)
-    trained=True
+    trained=False
     if trained:
      path = "trained_NNs\lstm_ws4.pth"
      model.load_state_dict(torch.load(path, map_location=torch.device('cpu')))
@@ -294,7 +295,7 @@ def main():
                       out_size=2, layers=1).to(device)
     
 
-    epochs = 20
+    epochs = 600
 
     for e in tqdm(range(epochs)):
         loss_epoch = train(train_dataset, model, ws=window_size,
@@ -307,7 +308,7 @@ def main():
     plt.show()
 
     # Save trained model
-    torch.save(model.state_dict(), "trained_NNs/lstm_ws4.pth")
+    torch.save(model.state_dict(), "trained_NNs/lstm_ws4_1.pth")
 
     # Test the model
     # test_dataset = test_dataset[:][:, :, :]

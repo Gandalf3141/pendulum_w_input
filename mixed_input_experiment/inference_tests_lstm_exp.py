@@ -66,25 +66,23 @@ class LSTMmodel(nn.Module):
         return pred, hidden
 
 
-def test(test_data, time, model, plot_opt=False, ws=1, steps=600, error_plot=False, noise_factor=1):
+def test(test_data, time, model, plot_opt=False, ws=1, steps=600, error_plot=False, noise_factor_1=1, noise_factor_2=1):
 
     model.eval()
     loss_fn = nn.MSELoss()
 
-    test_lossA = []
-    test_loss_derivA = []
-    test_lossB = []
-    test_loss_derivB = []
-    test_lossC = []
-    test_loss_derivC = []
+    loss_A, loss_derivA = [], []
+    loss_B, loss_derivB = [], []
+    loss_C, loss_derivC = [], []
+    total_A,total_B,total_C = [],[],[]
 
     for x in test_data:
         with torch.inference_mode():
             
             #put noise over true solution x
             x_noise = x.clone()
-            x_noise[:,1] += np.random.normal(0, 0.02, len(time))
-            x_noise[:,2] += noise_factor * np.random.normal(0, 0.02, len(time))
+            x_noise[:,1] +=  noise_factor_1 * np.random.normal(0, 0.02, len(time))
+            x_noise[:,2] += noise_factor_2 * np.random.normal(0, 0.02, len(time))
 
             pred = torch.zeros((steps, 3))
             pred_mixed = torch.zeros((steps, 3))
@@ -110,22 +108,26 @@ def test(test_data, time, model, plot_opt=False, ws=1, steps=600, error_plot=Fal
                 out2, _ = model(torch.cat((x_noise[i:i+ws, 0:2], pred_mixed[i:i+ws, 2].view(ws,1)), dim=1))
                 out3, _ = model(x_noise[i:i+ws, :])
 
-                # x[k+1] = x[k]              + NN(x[k])
+                # x[k+1] =           x[k]         + NN(x[k])
                 pred[i+ws, 1:] = pred[i+ws-1, 1:] + out[-1, :]
 
                 pred_mixed[i+ws, 1:] = torch.tensor([x_noise[i+ws-1, 1], pred_mixed[i+ws-1, 2]]) + out2[-1, :]
 
-                pred_next_step[i+ws, 1:] = x[i + ws-1, 1:] + out3[-1, :]
+                pred_next_step[i+ws, 1:] = x_noise[i + ws-1, 1:] + out3[-1, :]
 
 
-            test_lossA.append(loss_fn(pred[:, 1], x[:, 1]).detach().numpy())
-            test_loss_derivA.append(loss_fn(pred[:, 2], x[:, 2]).detach().numpy())
+            loss_A.append(loss_fn(pred[:, 1], x[:, 1]).detach().numpy())
+            loss_derivA.append(loss_fn(pred[:, 2], x[:, 2]).detach().numpy())
 
-            test_lossB.append(loss_fn(pred_mixed[:, 1], x[:, 1]).detach().numpy())
-            test_loss_derivB.append(loss_fn(pred_mixed[:, 2], x[:, 2]).detach().numpy())
+            loss_B.append(loss_fn(pred_mixed[:, 1], x[:, 1]).detach().numpy())
+            loss_derivB.append(loss_fn(pred_mixed[:, 2], x[:, 2]).detach().numpy())
 
-            test_lossC.append(loss_fn(pred_next_step[:, 1], x[:, 1]).detach().numpy())
-            test_loss_derivC.append(loss_fn(pred_next_step[:, 2], x[:, 2]).detach().numpy())
+            loss_C.append(loss_fn(pred_next_step[:, 1], x[:, 1]).detach().numpy())
+            loss_derivC.append(loss_fn(pred_next_step[:, 2], x[:, 2]).detach().numpy())
+
+            total_A.append(loss_fn(pred[:, 1:], x[:, 1:]).detach().numpy())
+            total_B.append(loss_fn(pred_mixed[:, 1:], x[:, 1:]).detach().numpy())
+            total_C.append(loss_fn(pred_next_step[:, 1:], x[:, 1:]).detach().numpy())
 
             if plot_opt:
 
@@ -135,16 +137,18 @@ def test(test_data, time, model, plot_opt=False, ws=1, steps=600, error_plot=Fal
                 fig2, axs = plt.subplots(3, 1, figsize=(16, 9))
 
                 # Plot the first function
+                axs[0].plot(time, x_noise.detach().numpy()[:, 1],color="grey", label="noisy_data", alpha=0.8)
                 axs[0].plot(time, pred.detach().numpy()[:, 1], color="red", label="pred")
                 axs[0].plot(time, pred_mixed.detach().numpy()[:, 1], color="purple", label="pred_mixed")
                 axs[0].plot(time, pred_next_step.detach().numpy()[:, 1], color="green", label="next_step_pred", linestyle="dashed")
-                axs[0].plot(time, x.detach().numpy()[:, 1],color="blue", label="true")
+                axs[0].plot(time, x.detach().numpy()[:, 1],color="blue", label="true", linestyle="dashed")
                 axs[0].set_xlabel('time [t]')
                 axs[0].set_ylabel(f"{greek_letterz[7]}(t)")
                 axs[0].set_title('damped pendulum with input')
                 axs[0].legend()
                 axs[0].grid()
 
+                axs[1].plot(time, x_noise.detach().numpy()[:, 2],color="grey", label="noisy_data", alpha=0.8)
                 axs[1].plot(time, pred.detach().numpy()[:, 2], color="red", label="pred")
                 axs[1].plot(time, pred_mixed.detach().numpy()[:, 2], color="purple", label="pred_mixed")
                 axs[1].plot(time, pred_next_step.detach().numpy()[:, 2], color="green", label="next_step_pred", linestyle="dashed")
@@ -224,7 +228,7 @@ def test(test_data, time, model, plot_opt=False, ws=1, steps=600, error_plot=Fal
                # plt.figure()
                 plt.show()
 
-    return (test_lossA, test_loss_derivA), (test_lossB, test_loss_derivB), (test_lossC, test_loss_derivC)
+    return (loss_A, loss_derivA), (loss_B, loss_derivB), (loss_C, loss_derivC), (total_A,total_B,total_C)
 
 
 def main():
@@ -233,64 +237,103 @@ def main():
     start_time = 0
     stop_time = 90
     timesteps = 3 * 200
-    num_of_inits = 100
+    num_of_inits = 200
     option_odestep = True
     use_autograd = False
     noise_factor = 10
+
     losses = []
     display_plots = False
-    num_of_inits = 3 if display_plots else num_of_inits
+
+    num_of_inits = 2 if display_plots else num_of_inits
 
     input_data, test_data, time, initial_values, input_data_w_time = get_data(x0=np.pi/4, y0=0.1, use_fixed_init=False,
                                                                                t0=start_time, t1=stop_time,
                                                                               time_steps=timesteps, 
                                                                               num_of_inits=num_of_inits,
-                                                                              normalize=False, add_noise=False, 
-                                                                              u_option="random_walk",  set_seed=False,
-                                                                              ws_start_noise=window_size,
-                                                                              noise_factor=noise_factor)
+                                                                              normalize=False, 
+                                                                              add_noise=False, 
+                                                                              u_option="random_walk",
+                                                                              set_seed=False,
+                                                                              ws_start_noise=0,
+                                                                              noise_factor=2)
 
     train_size = 1
     test_size = len(input_data) - train_size
     train_dataset, test_dataset = torch.utils.data.random_split(input_data, [train_size, test_size])
 
-    model = LSTMmodel(input_size=3, hidden_size=5,
-                      out_size=2, layers=1).to(device)
+    model = LSTMmodel(input_size=3, hidden_size=5, out_size=2, layers=1).to(device)
     
-    path = "mixed_input_experiment\Trained_lstms_exp\lstm_noisefactor.pth"
+    path = "Trained_NNs\lstm_wsize_4_smaller_net.pth"
+    #"Trained_NNs\lstm_wsize_4_smaller_net.pth"
     model.load_state_dict(torch.load(path, map_location=torch.device('cpu')))
     # this works good:  window_size = 4 / small model
     # model.load_state_dict(torch.load("lstm_wsize_4_smaller_net.pth", map_location=torch.device('cpu')))
 
-    (test_lossA, test_loss_derivA), (test_lossB, test_loss_derivB), (test_lossC, test_loss_derivC)= test(test_dataset,
+    (loss_A, loss_derivA), (loss_B, loss_derivB), (loss_C, loss_derivC), (total_A,total_B,total_C)=test(test_dataset,
                                                                                                         time, model,
                                                                                                         plot_opt=display_plots,
-                                                                                                        ws=1, 
-                                                                                                        steps=600,
+                                                                                                        ws=window_size, 
+                                                                                                        steps=timesteps,
                                                                                                         error_plot=display_plots,
-                                                                                                        noise_factor=10)
+                                                                                                        noise_factor_1=2,
+                                                                                                        noise_factor_2=5)
 
-    print("calc done")
 
     if not display_plots:
-        a=np.array(test_loss_derivA)
-        b=np.array(test_loss_derivB)
-        c=np.array(test_loss_derivC)
+
+
+        a=np.array(loss_A)
+        b=np.array(loss_B)
+        c=np.array(loss_C)
+        aa=np.array(loss_derivA)
+        bb=np.array(loss_derivB)
+        cc=np.array(loss_derivC)
+
+        totalA=np.array(total_A)
+        totalB=np.array(total_B)
+        totalC=np.array(total_C)
+
+
         perc = torch.mean(torch.tensor([100*(a/b-1) for a, b in zip(a, b)]))
-        perc2 = torch.mean(torch.tensor([100*(a/c-1) for a, c in zip(a, c)]))
+        perc2 = torch.mean(torch.tensor([100*(b/c-1) for b, c in zip(b, c)]))
+        
+        perc3 = torch.mean(torch.tensor([100*(a/b-1) for a, b in zip(aa, bb)]))
+        perc4 = torch.mean(torch.tensor([100*(b/c-1) for b, c in zip(bb, cc)]))
 
-        fig, axs = plt.subplots(1, 1, figsize=(16, 9))
-        axs.hist(a.flatten(),bins=30, alpha = 0.5, label="using only predictions")
-        axs.hist(b.flatten(), bins=30, alpha = 0.5, label="using partly meassured data")
-        axs.hist(c.flatten(), bins=30, alpha = 0.5, label="using fully meassured data")
-        axs.axvline(a.mean(), color='blue', linestyle='dashed', linewidth=1, label=f"Mean {np.round(a.mean(),7)}: using only predictions")
-        axs.axvline(b.mean(), color='red', linestyle='dashed', linewidth=1, label=f"Mean {np.round(b.mean(),7)}: using partly meassured data")
-        axs.axvline(c.mean(), color='purple', linestyle='dashed', linewidth=1, label=f"Mean {np.round(c.mean(),7)}: using fully meassured data")
-        axs.set_title(f"Error in prediction of angular velocity \n num of initial values = {num_of_inits}, \n Average difference in Errors A vs B {np.round(perc,2)}%, \n Average difference in Errors A vs C {np.round(perc2,2)}%")
-        axs.set_xlabel("mean squared error")
-        axs.grid()
-        axs.legend()
+        fig, axs = plt.subplots(3, 1, figsize=(16, 9))
+        #axs[0].hist(a.flatten(),bins=30, alpha = 0.5, label="using only predictions")
+        axs[0].hist(b.flatten(), bins=30, alpha = 0.5, label="using partly meassured data")
+        axs[0].hist(c.flatten(), bins=30, alpha = 0.5, label="using fully meassured data")
+        #axs[0].axvline(a.mean(), color='blue', linestyle='dashed', linewidth=2, label=f"Mean {np.round(a.mean(),7)}: using only predictions")
+        axs[0].axvline(b.mean(), color='red', linestyle='dashed', linewidth=2, label=f"Mean {np.round(b.mean(),7)}: using partly meassured data")
+        axs[0].axvline(c.mean(), color='purple', linestyle='dashed', linewidth=2, label=f"Mean {np.round(c.mean(),7)}: using fully meassured data")
+        axs[0].set_title(f"Error in prediction of angle \n num of initial values = {num_of_inits}, \n Average difference in Errors B vs C {np.round(perc2,2)}%")
+        axs[0].set_xlabel("mean squared error")
+        axs[0].grid()
+        axs[0].legend()
 
+        #axs[1].hist(aa.flatten(),bins=30, alpha = 0.5, label="using only predictions")
+        axs[1].hist(bb.flatten(), bins=30, alpha = 0.5, label="using partly meassured data")
+        axs[1].hist(cc.flatten(), bins=30, alpha = 0.5, label="using fully meassured data")
+        #axs[1].axvline(aa.mean(), color='blue', linestyle='dashed', linewidth=2, label=f"Mean {np.round(aa.mean(),7)}: using only predictions")
+        axs[1].axvline(bb.mean(), color='red', linestyle='dashed', linewidth=2, label=f"Mean {np.round(bb.mean(),7)}: using partly meassured data")
+        axs[1].axvline(cc.mean(), color='purple', linestyle='dashed', linewidth=2, label=f"Mean {np.round(cc.mean(),7)}: using fully meassured data")
+        axs[1].set_title(f"Error in prediction of angular velocity \n num of initial values = {num_of_inits}, \n  Average difference in Errors B vs C {np.round(perc4,2)}%")
+        axs[1].set_xlabel("mean squared error")
+        axs[1].grid()
+        axs[1].legend()
+
+        #axs[1].hist(aa.flatten(),bins=30, alpha = 0.5, label="using only predictions")
+        axs[2].hist(totalB.flatten(), bins=30, alpha = 0.5, label="using partly meassured data")
+        axs[2].hist(totalC.flatten(), bins=30, alpha = 0.5, label="using fully meassured data")
+        #axs[1].axvline(aa.mean(), color='blue', linestyle='dashed', linewidth=2, label=f"Mean {np.round(aa.mean(),7)}: using only predictions")
+        axs[2].axvline(totalB.mean(), color='red', linestyle='dashed', linewidth=2, label=f"Mean {np.round(totalB.mean(),7)}: using partly meassured data")
+        axs[2].axvline(totalC.mean(), color='purple', linestyle='dashed', linewidth=2, label=f"Mean {np.round(totalC.mean(),7)}: using fully meassured data")
+        axs[2].set_title(f"Total Error in prediction")
+        axs[2].set_xlabel("mean squared error")
+        axs[2].grid()
+        axs[2].legend()
         # axs[1].plot(perc)
         # axs[1].plot(torch.ones_like(perc) * torch.mean(perc),
         #             label=f"Average {np.round(torch.mean(perc),2)} %")

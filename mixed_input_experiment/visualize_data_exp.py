@@ -93,7 +93,7 @@ def plot_batch_rnn(data, batch_y0_rnn, batch_t_rnn, batch_y_rnn, t_end_batch, t_
 
 t_start = 0
 t_end = 30
-time_steps = 200
+time_steps = 400
 num_of_inits = 1
 
 t_end_batch = 100
@@ -101,7 +101,7 @@ batch_size = 3
 
 input_data, test_data, time, initial_values, input_data_w_time = get_data(x0=np.pi/4, y0=0.1, use_fixed_init=False, t0=t_start, t1=t_end,
                                                                           time_steps=time_steps, num_of_inits=num_of_inits, normalize=False,
-                                                                          add_noise=True, u_option="random_walk",  set_seed=True, noise_factor=10)
+                                                                          add_noise=True, u_option="random_walk",  set_seed=True, noise_factor=6)
 
 
 plot_data(input_data, time, plot_derive=0, plot_all=True)

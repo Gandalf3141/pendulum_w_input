@@ -440,7 +440,8 @@ def main():
     num_of_inits = 200
     option_odestep = True
     losses = []
-    use_autograd = False
+    use_autograd = False#ignore
+    noise_factor = 6
 
     # Generate input data
     input_data, test_data, time, initial_values, input_data_w_time = get_data(x0=np.pi/4, y0=0.1, use_fixed_init=False, t0=start_time, t1=stop_time,
@@ -449,7 +450,7 @@ def main():
                                                                               normalize=False, add_noise=True,
                                                                               u_option="random_walk",
                                                                               set_seed=True,
-                                                                              noise_factor=10)
+                                                                              noise_factor=noise_factor)
 
     # input_data2, test_data, time, initial_values, input_data_w_time = get_data(x0 = np.pi/4, y0 = 0.1, use_fixed_init = False, t0=start_time, t1=stop_time,
     #                                                                                time_steps=timesteps, num_of_inits=50,
@@ -462,7 +463,7 @@ def main():
     train_dataset, test_dataset = torch.utils.data.random_split(input_data, [train_size, test_size])
 
     # Take a slice of data for training
-    slice_of_data = 20
+    slice_of_data = 80
     train_dataset = train_dataset[:][:, 0:slice_of_data, :]
 
     # Initialize the LSTM model
@@ -471,7 +472,7 @@ def main():
     else:
         model = LSTMmodel(input_size=3, hidden_size=5,out_size=2, layers=1).to(device)
 
-    epochs = 20
+    epochs = 30
 
     for e in tqdm(range(epochs)):
         loss_epoch = train(train_dataset, model, ws=window_size,
@@ -484,7 +485,7 @@ def main():
     plt.show()
 
     # Save trained model
-    file_name = "mixed_input_experiment/Trained_lstms_exp/lstm_noisefactor.pth"
+    file_name = f"mixed_input_experiment/Trained_lstms_exp/lstm_noisefactor{noise_factor}.pth"
     torch.save(model.state_dict(), file_name)
 
     # Test the model
